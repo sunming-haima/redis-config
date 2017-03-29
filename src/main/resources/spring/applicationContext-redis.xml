@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:cache="http://www.springframework.org/schema/cache"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+         http://www.springframework.org/schema/beans/spring-beans.xsd
+         http://www.springframework.org/schema/tx
+         http://www.springframework.org/schema/tx/spring-tx.xsd
+         http://www.springframework.org/schema/context
+         http://www.springframework.org/schema/context/spring-context.xsd
+         http://www.springframework.org/schema/aop
+         http://www.springframework.org/schema/aop/spring-aop.xsd
+         http://www.springframework.org/schema/cache
+         http://www.springframework.org/schema/cache/spring-cache.xsd">
+
+    <context:component-scan base-package="sun.agg.redis">
+        <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+    </context:component-scan>
+
+
+    <cache:annotation-driven cache-manager="cacheManager"/>
+
+    <!-- spring自带注解接口 -->
+    <bean id="cacheManager" class="sun.agg.redis.RedisCacheManager">
+        <property name="caches">
+            <set>
+                <bean class="sun.agg.redis.RedisCacheImpl" p:name="EXPIRE05M" p:exp="300"></bean>
+                <bean class="sun.agg.redis.RedisCacheImpl" p:name="EXPIRE10M" p:exp="600"></bean>
+                <bean class="sun.agg.redis.RedisCacheImpl" p:name="EXPIRE20M" p:exp="1200"></bean>
+            </set>
+        </property>
+    </bean>
+
+
+    <!-- 初始化连接工程 -->
+    <bean id="redisClusterConnectionFactory" class="cn.com.gome.ztghb.flasher.spring.RedisClusterConnectionFactory">
+        <property name="hostPort" value="10.58.47.100:7010,10.58.47.100:7011,10.58.47.100:7012,10.58.47.101:7010,10.58.47.101:7011,10.58.47.101:7012"/>
+        <property name="business" value="agg"/>
+    </bean>
+
+    <!-- redis 集群实现,实现IRedis接口，对RedisCacheImpl里面的cache实现了注入 -->
+    <bean id="redis" class="cn.com.gome.ztghb.flasher.impl.RedisClusterImpl">
+        <constructor-arg index="0" ref="redisClusterConnectionFactory"/>
+    </bean>
+
+
+    <!-- 监控拦截器 -->
+    <bean id="monitorInterceptor" class="cn.com.gome.ztghb.flasher.monitor.interceptor.MonitorInterceptor"/>
+
+    <!-- 配置拦截器代理 -->
+    <bean id="autoProxyCreator" class="org.springframework.aop.framework.autoproxy.BeanNameAutoProxyCreator">
+        <!-- 设置目标对象 -->
+        <property name="beanNames">
+            <list>
+                <value>redis</value>
+            </list>
+        </property>
+        <!-- 代理对象所使用的拦截器 -->
+        <property name="interceptorNames">
+            <list>
+                <value>monitorInterceptor</value>
+            </list>
+        </property>
+    </bean>
+
+
+
+</beans>
